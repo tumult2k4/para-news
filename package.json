@@ -1,0 +1,26 @@
+{
+  "name": "para-news",
+  "version": "1.0.0",
+  "description": "An automatic daily newspaper of the internet's strangest corners: paranormal, esoteric, fringe and forum dispatches, rewritten as news by Claude.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "scrape": "node scripts/scrape.js",
+    "scrape:force": "node scripts/scrape.js --force",
+    "scrape:dry": "node scripts/scrape.js --dry-run",
+    "check-sources": "node scripts/check-sources.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
+    "cheerio": "^1.2.0",
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.11.2",
+    "node-cron": "^4.6.0"
+  }
+}

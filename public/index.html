@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Para News</title>
+  <meta name="description" content="A daily newspaper printed automatically from the strangest corners of the internet.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Playfair+Display:ital,wght@0,600;0,800;0,900;1,500&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="paper">
+    <header class="masthead">
+      <div class="folio">
+        <span id="folio-issue">&nbsp;</span>
+        <span id="folio-date">&nbsp;</span>
+        <span>Price: One Tinfoil Hat</span>
+      </div>
+      <div class="banner">
+        <aside class="ear ear-left">
+          <h4>Weather</h4>
+          <p id="weather">&nbsp;</p>
+        </aside>
+        <h1 class="title" id="paper-name">The Para News</h1>
+        <aside class="ear ear-right">
+          <h4>Omen of the Day</h4>
+          <p id="omen">&nbsp;</p>
+        </aside>
+      </div>
+      <div class="motto">“All the News That’s Unfit to Believe”</div>
+      <nav class="toolbar" aria-label="Sections and editions">
+        <div class="sections" id="section-nav"></div>
+        <div class="tools">
+          <label class="archive">
+            <span>Edition</span>
+            <select id="archive"></select>
+          </label>
+          <button type="button" id="theme-toggle" title="Toggle night edition">☾</button>
+        </div>
+      </nav>
+    </header>
+
+    <div id="notice" class="notice" hidden></div>
+
+    <main id="front"></main>
+
+    <footer class="colophon" id="colophon"></footer>
+  </div>
+
+  <template id="empty-template">
+    <section class="empty">
+      <h2>The Presses Have Not Yet Run</h2>
+      <p>No edition has been printed yet. The first one is usually on its way the moment the server starts; this page will update itself when it lands.</p>
+    </section>
+  </template>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

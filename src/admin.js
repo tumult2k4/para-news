@@ -3,8 +3,8 @@ import path from 'node:path';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { config, ROOT, loadSources } from './config.js';
 import { runEdition, isRunning } from './pipeline.js';
-import { listEditionDates, loadEdition, loadStatus } from './store.js';
-import { getSettings, updateSettings } from './settings.js';
+import { describe, listEditions, loadStatus } from './store.js';
+import { getSettings, updateSettings, SettingsError } from './settings.js';
 import { recentLog, log } from './util.js';
 
 const COOKIE = 'pn_admin';
@@ -83,34 +83,20 @@ export function createAdminRouter(scheduler) {
     res.json({ ok: true });
   });
 
-  router.get('/api/status', requireAdmin, (req, res) => {
-    const editions = listEditionDates()
-      .slice(0, 30)
-      .map((date) => {
-        const e = loadEdition(date);
-        return {
-          date,
-          issue: e?.issue,
-          articles: e?.articles?.length ?? 0,
-          briefs: e?.briefs?.length ?? 0,
-          lead: e?.articles?.find((a) => a.lead)?.headline ?? null,
-          ai: Boolean(e?.ai?.used),
-          model: e?.ai?.model,
-          cost: e?.ai?.used ? e.ai.estCostUsd : 0,
-          generatedAt: e?.generatedAt,
-        };
-      });
+  router.get('/api/status', requireAdmin, async (req, res) => {
+    const [editions, status, settings] = await Promise.all([listEditions(), loadStatus(), getSettings()]);
     res.json({
-      ...loadStatus(),
+      ...status,
       running: isRunning(),
-      settings: getSettings(),
+      settings,
+      storage: describe(),
       nextRun: scheduler.nextRun(),
       timezone: config.timezone,
       model: config.model,
       aiEnabled: config.aiEnabled,
       hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
       sources: loadSources().sources.length,
-      editions,
+      editions: editions.slice(0, 30),
       log: recentLog(),
     });
   });
@@ -122,15 +108,17 @@ export function createAdminRouter(scheduler) {
     res.status(202).json({ started: true });
   });
 
-  router.put('/api/settings', requireAdmin, (req, res) => {
+  router.put('/api/settings', requireAdmin, async (req, res) => {
+    let settings;
     try {
-      const settings = updateSettings(req.body || {});
-      scheduler.apply();
-      log(`Admin: auto-print ${settings.autoGenerate ? `ON at ${settings.printTime}` : 'OFF'}.`);
-      res.json({ settings, nextRun: scheduler.nextRun() });
+      settings = await updateSettings(req.body || {});
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      if (err instanceof SettingsError) return res.status(400).json({ error: err.message });
+      throw err;
     }
+    await scheduler.apply();
+    log(`Admin: auto-print ${settings.autoGenerate ? `ON at ${settings.printTime}` : 'OFF'}.`);
+    res.json({ settings, nextRun: scheduler.nextRun() });
   });
 
   return router;

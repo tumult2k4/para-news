@@ -9,7 +9,8 @@
     "scrape": "node scripts/scrape.js",
     "scrape:force": "node scripts/scrape.js --force",
     "scrape:dry": "node scripts/scrape.js --dry-run",
-    "check-sources": "node scripts/check-sources.js"
+    "check-sources": "node scripts/check-sources.js",
+    "db:setup": "node scripts/db-setup.js"
   },
   "engines": {
     "node": ">=20"
@@ -21,6 +22,7 @@
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.11.2",
+    "mysql2": "^3.24.5",
     "node-cron": "^4.6.0"
   }
 }

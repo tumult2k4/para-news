@@ -44,6 +44,18 @@ The Press Room lives at **`/admin`**. Nothing on the public paper links to it, a
 
 Sessions last 12 hours and end when the server restarts. After 5 wrong passwords, sign-in is locked for 15 minutes.
 
+## Database (e.g. Hostinger)
+
+Without a database, editions, settings and the printed-links ledger are JSON files in `data/`. That folder isn't in Git, so a host that rebuilds the app from GitHub on every push (Hostinger's Git deployment, for example) loses the whole archive. After each deploy the server would then print a new edition, because it finds none for today.
+
+To avoid this, give the app a MySQL or MariaDB database:
+
+1. In Hostinger's hPanel, go to **Databases → Management** and create a database. Note the database name, user and password; on Hostinger they all start with `u123456789_`.
+2. Set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` in the app's environment variables on Hostinger, and in your local `.env`. On the server itself, `DB_HOST` is usually `localhost`.
+3. Run `npm run db:setup` once. It creates the tables (all prefixed `pn_`) and imports the editions in `data/`. Running it from your own PC needs **Databases → Remote MySQL** access for your IP, and the remote host name that hPanel shows.
+
+From then on the archive lives in the database: back issues load instantly after a redeploy, and a restart only prints if there is genuinely no edition for today yet. The admin page shows which archive is in use under **Archive**.
+
 ## Scheduling
 
 You can schedule the daily print in either of two ways:
@@ -66,6 +78,7 @@ The two methods can run side by side. A lock file stops them from printing at th
 | `npm run scrape:force` | Reprint today's edition |
 | `npm run scrape:dry` | Fetch every source and list today's candidates; nothing is saved and no AI is used |
 | `npm run check-sources` | Health check for every source: reachable? last post date? stale? |
+| `npm run db:setup` | Create the database tables and import `data/` (add `-- --overwrite` to replace editions already there) |
 
 ## Configuration (`.env`)
 
@@ -73,6 +86,7 @@ The two methods can run side by side. A lock file stops them from printing at th
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | Required for written articles |
 | `ADMIN_PASSWORD` | — | Password for `/admin`; admin is disabled when empty |
+| `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASSWORD` | — | MySQL/MariaDB archive (see above); files in `data/` when unset |
 | `CLAUDE_MODEL` | `claude-sonnet-5-5` | Used by both the editor and the writers. `claude-opus-5-5` writes a little better at about twice the cost; `claude-haiku-5-5` costs pennies |
 | `EDITOR_EFFORT` / `WRITER_EFFORT` | `medium` / `low` | Thinking effort for the editor and writers |
 | `AUTO_GENERATE` / `PRINT_TIME` | `true` / `06:00` | Starting values for daily auto-print; once changed in `/admin`, the admin values win |
@@ -123,10 +137,11 @@ src/fetchers.js       RSS/Atom, Anomalist, Reddit and 4chan scrapers
 src/extract.js        full-text extraction from article pages
 src/ai.js             Claude editor + writer (structured JSON output)
 src/pipeline.js       collect -> shortlist -> edit -> report -> print
+src/store.js          storage: MySQL (store-mysql.js) or files in data/ (store-files.js)
 src/server.js         Express server, public API and daily scheduler
 src/admin.js          /admin sign-in, sessions and admin API
 src/settings.js       auto-print settings (data/settings.json)
 public/               the newspaper front end
 admin/                the Press Room (admin) page
-data/                 printed editions, seen-links ledger, run status (git-ignored)
+data/                 local archive when no database is set (git-ignored)
 ```

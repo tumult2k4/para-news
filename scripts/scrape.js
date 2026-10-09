@@ -10,7 +10,7 @@ import { getSettings } from '../src/settings.js';
 import { log } from '../src/util.js';
 
 const args = new Set(process.argv.slice(2));
-if (args.has('--scheduled') && !getSettings().autoGenerate) {
+if (args.has('--scheduled') && !(await getSettings()).autoGenerate) {
   log('Auto-print is switched off in /admin; not printing.');
   process.exit(0);
 }

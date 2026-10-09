@@ -30,6 +30,16 @@ export const config = {
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+  // MySQL/MariaDB (e.g. a Hostinger database). When DB_HOST is unset, everything is stored in data/ instead.
+  db: process.env.DB_HOST
+    ? {
+        host: process.env.DB_HOST,
+        port: int(process.env.DB_PORT, 3306),
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }
+    : null,
   dataDir: path.join(ROOT, 'data'),
   editionsDir: path.join(ROOT, 'data', 'editions'),
 };

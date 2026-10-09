@@ -3,7 +3,7 @@ import { config, loadSources } from './config.js';
 import { fetchers, fetchFourchanThread } from './fetchers.js';
 import { extractArticle } from './extract.js';
 import { editEdition, writeArticle, usage, AiUnavailableError } from './ai.js';
-import { listEditionDates, editionExists, loadEdition, saveEdition, loadSeen, saveSeen, saveStatus, acquireLock, releaseLock } from './store.js';
+import { listEditions, editionExists, loadEdition, saveEdition, loadSeen, setSeenForDate, saveStatus, acquireLock, releaseLock } from './store.js';
 import { localDate, mapLimit, truncate, sleep, log } from './util.js';
 
 let running = null;
@@ -14,14 +14,14 @@ export function runEdition(opts = {}) {
   if (!running) {
     running = (async () => {
       if (opts.dryRun) return printEdition(opts);
-      if (!acquireLock()) {
+      if (!(await acquireLock())) {
         log('Another process is already printing; skipping this run.');
         throw new Error('Another print run is already in progress.');
       }
       try {
         return await printEdition(opts);
       } finally {
-        releaseLock();
+        await releaseLock();
       }
     })().finally(() => {
       running = null;
@@ -141,12 +141,12 @@ function wireCopy(item) {
 // ---------------------------------------------------------------- 3. Print
 
 async function printEdition({ date = localDate(), force = false, dryRun = false, noAi = false } = {}) {
-  if (!force && !dryRun && editionExists(date)) {
+  if (!force && !dryRun && (await editionExists(date))) {
     log(`Edition ${date} already exists (use --force to reprint).`);
-    return loadEdition(date);
+    return await loadEdition(date);
   }
   const started = Date.now();
-  if (!dryRun) saveStatus({ running: true, startedAt: new Date().toISOString() });
+  if (!dryRun) await saveStatus({ running: true, startedAt: new Date().toISOString() });
   usage.reset();
   let aiOn = config.aiEnabled && !noAi;
   const notes = [];
@@ -155,7 +155,7 @@ async function printEdition({ date = localDate(), force = false, dryRun = false,
     const { sections, sources } = loadSources();
     log(`Printing ${config.paperName} for ${date}: fetching ${sources.length} sources…`);
     const { items, report } = await collect(sources);
-    const seen = loadSeen();
+    const seen = await loadSeen();
     const candidates = shortlist(items, sources, seen, date);
     log(`Wire: ${items.length} items fetched, ${candidates.length} fresh candidates.`);
     if (!candidates.length) throw new Error('No fresh items found on any source.');
@@ -242,7 +242,7 @@ async function printEdition({ date = localDate(), force = false, dryRun = false,
       return { blurb, title: c.title, url: c.link, source: c.sourceName, sourceHomepage: c.sourceHomepage, section: c.sectionHint };
     });
 
-    const priorIssues = listEditionDates().filter((d) => d !== date);
+    const priorIssues = (await listEditions()).map((e) => e.date).filter((d) => d !== date);
     const edition = {
       date,
       paperName: config.paperName,
@@ -259,17 +259,14 @@ async function printEdition({ date = localDate(), force = false, dryRun = false,
       sourceReport: report.sort((a, b) => a.name.localeCompare(b.name)),
       stats: { fetched: items.length, candidates: candidates.length, durationSec: Math.round((Date.now() - started) / 1000) },
     };
-    saveEdition(edition);
+    await saveEdition(edition);
+    await setSeenForDate(date, [...articles.map((a) => a.original.url), ...briefs.map((b) => b.url)]);
 
-    for (const a of articles) seen[a.original.url] = date;
-    for (const b of briefs) seen[b.url] = date;
-    saveSeen(seen);
-
-    saveStatus({ running: false, lastRunAt: edition.generatedAt, lastRunOk: true, lastError: null, lastEdition: date });
+    await saveStatus({ running: false, lastRunAt: edition.generatedAt, lastRunOk: true, lastError: null, lastEdition: date });
     log(`Printed ${articles.length} articles and ${briefs.length} briefs in ${edition.stats.durationSec}s` + (edition.ai.used ? ` (${usage.calls} Claude calls, ~$${edition.ai.estCostUsd}).` : '.'));
     return edition;
   } catch (err) {
-    if (!dryRun) saveStatus({ running: false, lastRunAt: new Date().toISOString(), lastRunOk: false, lastError: err.message });
+    if (!dryRun) await saveStatus({ running: false, lastRunAt: new Date().toISOString(), lastRunOk: false, lastError: err.message }).catch(() => {});
     log(`Edition failed: ${err.message}`);
     throw err;
   }

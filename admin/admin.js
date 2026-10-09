@@ -54,6 +54,7 @@ function render(s) {
   $('#api-key').textContent = s.hasApiKey ? 'Set' : 'Missing: articles print as raw wire copy';
   $('#api-key').className = s.hasApiKey ? '' : 'bad';
   $('#sources').textContent = `${s.sources} sources enabled`;
+  $('#storage').textContent = s.storage;
 
   const log = $('#log');
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 20;

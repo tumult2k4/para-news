@@ -4,13 +4,15 @@ import mysql from 'mysql2/promise';
 import { createHash } from 'node:crypto';
 import { config } from './config.js';
 
-const pool = mysql.createPool({
-  ...config.db,
-  charset: 'utf8mb4',
-  connectionLimit: 4,
-  enableKeepAlive: true,
-  connectTimeout: 15000,
-});
+let pool;
+const getPool = () =>
+  (pool ||= mysql.createPool({
+    ...config.db,
+    charset: 'utf8mb4',
+    connectionLimit: 4,
+    enableKeepAlive: true,
+    connectTimeout: 15000,
+  }));
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS pn_editions (
@@ -46,7 +48,7 @@ let ready;
 /** Create the tables on first use. */
 function init() {
   ready ||= (async () => {
-    for (const sql of SCHEMA) await pool.query(sql);
+    for (const sql of SCHEMA) await getPool().query(sql);
   })().catch((err) => {
     ready = null; // let the next call retry, e.g. after the database comes back
     throw err;
@@ -56,7 +58,7 @@ function init() {
 
 async function q(sql, params) {
   await init();
-  const [rows] = await pool.query(sql, params);
+  const [rows] = await getPool().query(sql, params);
   return rows;
 }
 
@@ -129,7 +131,7 @@ export async function loadSeen() {
 /** Replace the links printed in this date's edition, and forget anything older than cutoff. */
 export async function setSeenForDate(date, links, cutoff) {
   await init();
-  const conn = await pool.getConnection();
+  const conn = await getPool().getConnection();
   try {
     await conn.beginTransaction();
     await conn.query('DELETE FROM pn_seen WHERE edition_date = ? OR edition_date < ?', [date, cutoff]);
@@ -169,4 +171,7 @@ export async function acquireLock() {
 }
 
 export const releaseLock = () => q("DELETE FROM pn_locks WHERE name = 'print'");
-export const close = () => pool.end();
+export const close = async () => {
+  if (pool) await pool.end();
+  pool = null;
+};

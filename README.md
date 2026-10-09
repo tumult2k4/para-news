@@ -44,6 +44,17 @@ The Press Room lives at **`/admin`**. Nothing on the public paper links to it, a
 
 Sessions last 12 hours and end when the server restarts. After 5 wrong passwords, sign-in is locked for 15 minutes.
 
+## Deploying on Hostinger
+
+The app runs as a Hostinger **Node.js Web App** deployed from GitHub. In the app's settings:
+
+- **Node.js version:** 22.x or 24.x (20.19 or newer is the minimum)
+- **Entry file:** `server.js` (in the project root; start command `npm start` works too)
+- **Build command / output directory:** leave empty
+- **Environment variables:** `ANTHROPIC_API_KEY`, `ADMIN_PASSWORD` and the `DB_…` values (see below). The `.env` file is not in Git.
+
+Hostinger serves the files in `public/` itself and passes everything else to the Node app. If the paper's page loads but stays empty, or `/` answers **503**, the Node process isn't running: open `stderr.log` in the app's folder in File Manager to see why.
+
 ## Database (e.g. Hostinger)
 
 Without a database, editions, settings and the printed-links ledger are JSON files in `data/`. That folder isn't in Git, so a host that rebuilds the app from GitHub on every push (Hostinger's Git deployment, for example) loses the whole archive. After each deploy the server would then print a new edition, because it finds none for today.

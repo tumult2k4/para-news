@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "An automatic daily newspaper of the internet's strangest corners: paranormal, esoteric, fringe and forum dispatches, rewritten as news by Claude.",
   "type": "module",
-  "main": "src/server.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node server.js",
     "scrape": "node scripts/scrape.js",
     "scrape:force": "node scripts/scrape.js --force",
     "scrape:dry": "node scripts/scrape.js --dry-run",
@@ -13,7 +13,7 @@
     "db:setup": "node scripts/db-setup.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "license": "ISC",
   "dependencies": {

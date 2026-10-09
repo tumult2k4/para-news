@@ -1,8 +1,12 @@
 // Storage facade: MySQL when DB_HOST is set, otherwise JSON files under data/.
 // Every function is async so both backends share one interface.
+// No top-level await anywhere in the server's import graph: some hosts (Passenger/LiteSpeed-style
+// loaders) start the app with require(), which can't load ES modules that use it.
 import { config } from './config.js';
+import * as files from './store-files.js';
+import * as mysqlStore from './store-mysql.js';
 
-const backend = config.db ? await import('./store-mysql.js') : await import('./store-files.js');
+const backend = config.db ? mysqlStore : files;
 
 export const {
   describe,

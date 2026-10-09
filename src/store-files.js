@@ -3,8 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
 
-fs.mkdirSync(config.editionsDir, { recursive: true });
-
 const SEEN_FILE = path.join(config.dataDir, 'seen.json');
 const LOCK_FILE = path.join(config.dataDir, 'print.lock');
 const LOCK_STALE_MS = 30 * 60e3;
@@ -20,6 +18,7 @@ function readJson(file, fallback) {
 }
 
 function writeJson(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, file);
@@ -28,6 +27,7 @@ function writeJson(file, data) {
 export const describe = () => `files in ${path.relative(process.cwd(), config.dataDir) || config.dataDir}`;
 
 function editionDates() {
+  if (!fs.existsSync(config.editionsDir)) return [];
   return fs
     .readdirSync(config.editionsDir)
     .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
@@ -71,6 +71,7 @@ export const getKv = async (name) => readJson(kvFile(name), null);
 export const setKv = async (name, value) => writeJson(kvFile(name), value);
 
 export async function acquireLock() {
+  fs.mkdirSync(config.dataDir, { recursive: true });
   try {
     fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
     return true;

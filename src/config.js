@@ -12,6 +12,8 @@ const int = (v, d) => (v === undefined || v === '' || isNaN(Number(v)) ? d : Num
 export const config = {
   paperName: process.env.PAPER_NAME || 'The Para News',
   port: int(process.env.PORT, 3000),
+  // Public origin for canonical URLs, sitemaps and feeds, e.g. https://paranormaldaily.com
+  siteUrl: (process.env.SITE_URL || '').replace(/\/+$/, ''),
   // Daily print time and on/off live in data/settings.json (edited from /admin); see settings.js.
   timezone: process.env.TZ_NAME || Intl.DateTimeFormat().resolvedOptions().timeZone,
   // Password for the hidden /admin page. Admin is disabled when unset.

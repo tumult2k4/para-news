@@ -93,7 +93,10 @@ a { color: inherit; }
 }
 
 .title {
+  display: block;
   margin: 0;
+  color: inherit;
+  text-decoration: none;
   text-align: center;
   font-family: var(--font-black);
   font-weight: 400;
@@ -112,7 +115,7 @@ a { color: inherit; }
   text-align: center;
   min-height: 92px;
 }
-.ear h4 {
+.ear h4, .ear .ear-title {
   margin: 0 0 4px;
   font-family: var(--font-head);
   font-size: 12px;
@@ -120,8 +123,10 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 .ear p { margin: 0; font-style: italic; }
+.ear .ear-title { font-style: normal; }
 
 .motto {
+  margin: 0;
   text-align: center;
   font-style: italic;
   font-size: 15px;
@@ -213,10 +218,10 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid
   line-height: 0.82;
   padding: 6px 8px 0 0;
 }
-.lead figure img { max-height: 460px; }
+.lead figure img { aspect-ratio: 16 / 9; }
 
 /* In Brief column */
-.briefs h3, .section-banner h2 {
+.briefs h3, .column-title, .section-banner h2 {
   font-family: var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -242,6 +247,8 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid
 /* Sections laid out as newspaper columns */
 .section-block { margin-top: 26px; }
 .section-banner h2 { font-size: 17px; text-align: left; padding-left: 2px; }
+.section-banner h2 a { text-decoration: none; }
+.section-banner h2 a:hover { text-decoration: underline; }
 .section-banner h2 small { float: right; font-size: 11px; letter-spacing: 0.1em; font-weight: 600; color: var(--ink-soft); padding-top: 3px; }
 .columns {
   column-count: 3;
@@ -307,7 +314,8 @@ figure { margin: 0 0 12px; }
 figure img {
   display: block;
   width: 100%;
-  max-height: 300px;
+  height: auto;
+  aspect-ratio: 3 / 2; /* reserves space before the image loads, so nothing jumps */
   object-fit: cover;
   filter: var(--img-filter);
   border: 1px solid var(--rule-soft);
@@ -319,6 +327,7 @@ figcaption { font-size: 11.5px; font-style: italic; color: var(--ink-soft); marg
 .body .dateline { font-weight: 700; letter-spacing: 0.04em; }
 .body .more[hidden] { display: none; }
 
+.continue-row { margin: 2px 0 0; }
 .continue {
   border: none;
   padding: 0;
@@ -349,7 +358,8 @@ figcaption { font-size: 11.5px; font-style: italic; color: var(--ink-soft); marg
 /* ------------------------------------------------------------ Empty / footer */
 
 .empty { text-align: center; padding: 80px 20px; }
-.empty h2 { font-family: var(--font-head); font-size: 34px; margin: 0 0 10px; }
+.empty h1, .empty h2 { font-family: var(--font-head); font-size: 34px; margin: 0 0 10px; }
+.empty .continue { margin: 0 8px; }
 
 .colophon {
   margin-top: 34px;
@@ -364,6 +374,109 @@ figcaption { font-size: 11.5px; font-style: italic; color: var(--ink-soft); marg
 .source-list { columns: 3 220px; column-gap: 24px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 13px; }
 .source-list li { break-inside: avoid; padding: 2px 0; }
 .source-list .bad { color: var(--accent); }
+
+/* ------------------------------------------------------------ Utilities */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: absolute;
+  left: 12px; top: -60px;
+  z-index: 10;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-head);
+  font-weight: 800;
+}
+.skip-link:focus { top: 8px; }
+
+/* ------------------------------------------------------------ Article page */
+
+.breadcrumb ol {
+  display: flex; flex-wrap: wrap; gap: 4px 0;
+  list-style: none; margin: 16px 0 0; padding: 0;
+  font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.breadcrumb li + li::before { content: "›"; margin: 0 8px; }
+.breadcrumb a { text-decoration-color: var(--rule-soft); text-underline-offset: 3px; }
+
+.story { max-width: 760px; margin: 18px auto 0; }
+.story-head .headline { font-size: clamp(32px, 4.6vw, 54px); line-height: 1.04; font-weight: 900; letter-spacing: -0.01em; margin-bottom: 12px; }
+.story-head .deck { font-size: 21px; }
+.byline { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px; }
+.byline a { text-decoration-color: var(--rule-soft); }
+.story figure img { aspect-ratio: 16 / 9; }
+.story-body { font-size: 18px; line-height: 1.65; }
+.story-body p { text-align: left; }
+.story-body p:first-child::first-letter {
+  float: left;
+  font-family: var(--font-head);
+  font-weight: 900;
+  font-size: 68px;
+  line-height: 0.8;
+  padding: 7px 9px 0 0;
+}
+.source-box {
+  margin: 26px 0 0;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  outline: 1px solid var(--rule);
+  outline-offset: 3px;
+  font-size: 15px;
+}
+.source-box h2 { font-family: var(--font-head); font-size: 14px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 8px; }
+.source-box p { margin: 0 0 8px; }
+.source-box a.original { font-weight: 700; text-decoration-color: var(--accent); text-underline-offset: 2px; }
+.fine { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+.more { max-width: 760px; margin: 34px auto 0; }
+.more-list { list-style: none; margin: 0; padding: 0; columns: 2 260px; column-gap: 28px; }
+.more-list li { break-inside: avoid; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); font-family: var(--font-head); font-weight: 600; font-size: 16px; line-height: 1.3; }
+.more-list a { text-decoration: none; }
+.more-list a:hover { text-decoration: underline; }
+.more-section { display: block; margin-top: 2px; font-family: var(--font-body); font-weight: 400; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+
+.pager { display: flex; justify-content: space-between; gap: 16px; margin: 30px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); font-family: var(--font-head); font-style: italic; font-size: 15px; }
+.pager a { color: var(--accent); text-underline-offset: 3px; }
+
+/* ------------------------------------------------------------ Section, archive and about pages */
+
+.page-head { max-width: 760px; margin: 24px auto 20px; text-align: center; }
+.page-head h1 { font-family: var(--font-head); font-weight: 900; font-size: clamp(30px, 4.4vw, 50px); line-height: 1.05; margin: 0 0 10px; }
+.page-head .deck { font-size: 19px; }
+.listing { margin-top: 10px; }
+.listing-card .headline { font-size: 22px; }
+.empty-note { text-align: center; font-style: italic; color: var(--ink-soft); }
+
+.archive-month { max-width: 760px; margin: 26px auto 0; }
+.archive-list { list-style: none; margin: 0; padding: 0; }
+.archive-list li { padding: 10px 0; border-bottom: 1px solid var(--rule-soft); }
+.archive-list a { font-family: var(--font-head); font-weight: 800; font-size: 17px; text-decoration: none; }
+.archive-list a:hover { text-decoration: underline; }
+.archive-lead { display: block; font-style: italic; margin-top: 2px; }
+.archive-count { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+
+.prose { max-width: 720px; margin: 0 auto; font-size: 17px; line-height: 1.65; }
+.prose h2 { font-family: var(--font-head); font-size: 24px; margin: 28px 0 8px; }
+.prose h3 { font-family: var(--font-head); font-size: 17px; margin: 18px 0 4px; }
+.prose li { margin-bottom: 6px; }
+.correspondents { columns: 2 220px; column-gap: 24px; font-size: 15px; }
+
+/* Edition footer and site footer */
+.edition-meta { margin-top: 30px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-soft); text-align: center; }
+.edition-meta details { margin-top: 8px; text-align: left; }
+.edition-meta summary { cursor: pointer; text-align: center; font-family: var(--font-head); letter-spacing: 0.1em; text-transform: uppercase; font-size: 12px; }
+.footer-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font-family: var(--font-head); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+.footer-nav a { text-decoration: none; }
+.footer-nav a:hover { text-decoration: underline; }
+.colophon .fine { margin: 10px auto 0; max-width: 640px; }
 
 /* ------------------------------------------------------------ Responsive */
 

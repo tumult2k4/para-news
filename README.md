@@ -28,11 +28,28 @@ If you have no API key yet, the paper still prints, but as raw "wire copy" (sour
 2. **Shortlist.** Only posts from the last 36 hours that haven't already been printed are kept, with a per-source cap. Duplicates are removed by link and by title.
 3. **Edit.** One Claude call reads the whole wire, which is typically 60 to 100 items. It picks about 18 articles, a lead story, 12 one-line briefs, a weather forecast and an omen of the day.
 4. **Report.** For each pick, the app fetches the full text of the original page (or the whole 4chan thread), and one Claude call writes the article. The writer can drop a story (hate, gore, someone's real mental-health crisis, nothing to report); when it does, an alternate runs instead.
-5. **Print.** The edition is saved to `data/editions/YYYY-MM-DD.json` and served at `/`. Past editions stay available from the **Edition** dropdown.
+5. **Print.** The edition is saved (in the database, or `data/editions/YYYY-MM-DD.json`) and becomes the front page. Past editions stay available from the **Edition** dropdown and the archive.
 
 ### House style
 
 The writers use a straight-faced 1930s-broadsheet voice. Every claim is attributed ("the poster insists", "the channeled message states") and nothing paranormal is ever stated as fact. Quotes must appear verbatim in the source. Reddit and 4chan usernames are never printed. Each article has a **Strangeness** rating from 1 to 5.
+
+## The public site and SEO
+
+Every page is rendered on the server as complete HTML, so search engines, social previews and AI crawlers see the full text without running JavaScript.
+
+| URL | Page |
+|---|---|
+| `/` | Today's front page |
+| `/2026/10/12/` | An edition |
+| `/2026/10/12/headline-slug` | A single article, with the full text and a box linking its source |
+| `/section/ufo-uap`, `/section/cryptids`, … | Recent articles from one section |
+| `/archive`, `/about` | Back issues; how the paper is made and its editorial standards |
+| `/sitemap.xml`, `/news-sitemap.xml`, `/feed.xml`, `/robots.txt` | For search engines and feed readers |
+
+Every page has its own title, description, canonical URL, Open Graph and Twitter tags, and schema.org data: `NewsArticle` (with `isBasedOn` pointing at the original post), `BreadcrumbList`, `CollectionPage`, and `NewsMediaOrganization`. Old addresses (`/?date=…`, `/index.html`, `www.`) redirect permanently. Unknown pages return a real 404. `/admin` and `/api` carry `noindex`. Set `SITE_URL` so canonical URLs and sitemaps always use the right address.
+
+After deploying, add the site to [Google Search Console](https://search.google.com/search-console) and [Bing Webmaster Tools](https://www.bing.com/webmasters) and submit `/sitemap.xml` and `/news-sitemap.xml`. Search Console can verify ownership through the existing Google Analytics tag.
 
 ## The admin page
 
@@ -103,6 +120,7 @@ The two methods can run side by side. A lock file stops them from printing at th
 | `AUTO_GENERATE` / `PRINT_TIME` | `true` / `06:00` | Starting values for daily auto-print; once changed in `/admin`, the admin values win |
 | `MAX_ARTICLES` / `MAX_BRIEFS` | `18` / `12` | Paper size |
 | `LOOKBACK_HOURS` | `36` | How fresh a post must be |
+| `SITE_URL` | from the request | Public address for canonical URLs, sitemaps and feeds, e.g. `https://paranormaldaily.com` |
 | `PAPER_NAME` | `The Para News` | Masthead |
 | `AI_MODE` | `on` | `off` forces raw wire copy |
 
@@ -149,10 +167,14 @@ src/extract.js        full-text extraction from article pages
 src/ai.js             Claude editor + writer (structured JSON output)
 src/pipeline.js       collect -> shortlist -> edit -> report -> print
 src/store.js          storage: MySQL (store-mysql.js) or files in data/ (store-files.js)
-src/server.js         Express server, public API and daily scheduler
+src/server.js         Express server and daily scheduler
+src/web.js            public pages, redirects, sitemaps and feeds
+src/render.js         server-side HTML templates and structured data
+src/feeds.js          robots.txt, sitemaps and the RSS feed
+src/site.js           URL scheme, section slugs and descriptions
 src/admin.js          /admin sign-in, sessions and admin API
 src/settings.js       auto-print settings (data/settings.json)
-public/               the newspaper front end
+public/               stylesheet, small browser script, icons and social image
 admin/                the Press Room (admin) page
 data/                 local archive when no database is set (git-ignored)
 ```

@@ -19,6 +19,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
     "cheerio": "^1.2.0",
+    "compression": "^1.8.2",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.11.2",

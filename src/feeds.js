@@ -1,5 +1,5 @@
 // robots.txt, XML sitemaps (regular + Google News) and the RSS feed.
-import { SITE, SECTIONS, sectionPath } from './site.js';
+import { SITE, SECTIONS, sectionPath, editionPath } from './site.js';
 import { clip } from './render.js';
 
 const XML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' };
@@ -17,8 +17,8 @@ Sitemap: ${origin}/news-sitemap.xml
 `;
 }
 
-/** editions: prepared editions (with article paths), newest first. */
-export function sitemapXml(origin, editions) {
+/** editions: edition summaries, newest first; articles: entries from the article index. */
+export function sitemapXml(origin, editions, articles) {
   const latest = editions[0]?.generatedAt;
   const url = (path, lastmod, changefreq, priority) =>
     `  <url><loc>${x(origin + path)}</loc>${lastmod ? `<lastmod>${x(lastmod)}</lastmod>` : ''}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
@@ -28,10 +28,8 @@ export function sitemapXml(origin, editions) {
     url('/about', null, 'monthly', '0.4'),
     ...Object.keys(SECTIONS).map((id) => url(sectionPath(id), latest, 'daily', '0.7')),
   ];
-  for (const e of editions) {
-    lines.push(url(e.path, e.generatedAt, 'monthly', '0.6'));
-    for (const a of e.articles) lines.push(url(a.path, e.generatedAt, 'monthly', a.lead ? '0.8' : '0.7'));
-  }
+  for (const e of editions) lines.push(url(editionPath(e.date), e.generatedAt, 'monthly', '0.6'));
+  for (const a of articles) lines.push(url(a.path, a.generatedAt, 'monthly', a.lead ? '0.8' : '0.7'));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${lines.join('\n')}
@@ -40,21 +38,19 @@ ${lines.join('\n')}
 }
 
 /** Google News sitemap: only articles from the last two days, as Google asks. */
-export function newsSitemapXml(origin, editions) {
+export function newsSitemapXml(origin, articles) {
   const cutoff = Date.now() - 48 * 3600e3;
-  const entries = editions
-    .filter((e) => new Date(e.generatedAt).getTime() >= cutoff)
-    .flatMap((e) =>
-      e.articles.map(
+  const entries = articles
+    .filter((a) => new Date(a.generatedAt).getTime() >= cutoff)
+    .map(
         (a) => `  <url>
     <loc>${x(origin + a.path)}</loc>
     <news:news>
       <news:publication><news:name>${x(SITE.name)}</news:name><news:language>${SITE.language}</news:language></news:publication>
-      <news:publication_date>${x(e.generatedAt)}</news:publication_date>
+      <news:publication_date>${x(a.generatedAt)}</news:publication_date>
       <news:title>${clean(a.headline)}</news:title>
     </news:news>
   </url>`,
-      ),
     );
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
@@ -64,11 +60,10 @@ ${entries.join('\n')}
 }
 
 /** RSS 2.0 feed of the most recent articles. */
-export function rssXml(origin, editions, limit = 50) {
-  const items = editions
-    .flatMap((e) => e.articles.map((a) => ({ e, a })))
+export function rssXml(origin, articles, limit = 50) {
+  const items = articles
     .slice(0, limit)
-    .map(({ e, a }) => {
+    .map((a) => {
       const link = origin + a.path;
       const ext = /\.(png|webp|gif)(\?|$)/i.exec(a.image || '')?.[1]?.toLowerCase();
       const image = /^https?:\/\//.test(a.image || '') ? `\n      <enclosure url="${x(a.image)}" type="image/${ext || 'jpeg'}" length="0"/>` : '';
@@ -76,9 +71,9 @@ export function rssXml(origin, editions, limit = 50) {
       <title>${clean(a.headline)}</title>
       <link>${x(link)}</link>
       <guid isPermaLink="true">${x(link)}</guid>
-      <pubDate>${new Date(e.generatedAt).toUTCString()}</pubDate>
+      <pubDate>${new Date(a.generatedAt).toUTCString()}</pubDate>
       <category>${x(SECTIONS[a.section]?.name ?? a.section)}</category>
-      <description>${clean(clip(a.deck || a.paragraphs[0] || '', 300))}</description>${image}
+      <description>${clean(clip(a.deck || a.excerpt || '', 300))}</description>${image}
     </item>`;
     });
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -89,7 +84,7 @@ export function rssXml(origin, editions, limit = 50) {
     <description>${x(SITE.description)}</description>
     <language>${SITE.language}</language>
     <atom:link href="${x(origin)}/feed.xml" rel="self" type="application/rss+xml"/>
-    ${editions[0] ? `<lastBuildDate>${new Date(editions[0].generatedAt).toUTCString()}</lastBuildDate>` : ''}
+    ${articles[0] ? `<lastBuildDate>${new Date(articles[0].generatedAt).toUTCString()}</lastBuildDate>` : ''}
     <image><url>${x(origin)}/logo.png</url><title>${x(SITE.name)}</title><link>${x(origin)}/</link></image>
 ${items.join('\n')}
   </channel>

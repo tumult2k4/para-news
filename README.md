@@ -1,8 +1,8 @@
-# The Para News
+# Paranormal Daily
 
 *"All the News That's Unfit to Believe"*
 
-The Para News is an automatic daily newspaper about the strangest corners of the internet. Once a day it scrapes 37 fringe sources: UFO blogs, ghost and cryptid sites, channeled messages from star beings, synchromystic decoders, ancient-mystery sites, tabloid weird news, and the paranormal boards of Reddit and 4chan. Claude then picks the best material and rewrites it as broadsheet articles. Every article and brief links back to the original post.
+Paranormal Daily is an automatic daily newspaper about the strangest corners of the internet. Once a day it scrapes 37 fringe sources: UFO blogs, ghost and cryptid sites, channeled messages from star beings, synchromystic decoders, ancient-mystery sites, tabloid weird news, and the paranormal boards of Reddit and 4chan. Claude then picks the best material and rewrites it as broadsheet articles. Every article and brief links back to the original post.
 
 ## Quick start
 
@@ -44,7 +44,8 @@ Every page is rendered on the server as complete HTML, so search engines, social
 | `/2026/10/12/` | An edition |
 | `/2026/10/12/headline-slug` | A single article, with the full text and a box linking its source |
 | `/section/ufo-uap`, `/section/cryptids`, … | Recent articles from one section |
-| `/archive`, `/about` | Back issues; how the paper is made and its editorial standards |
+| `/archive` | Every story ever printed, searchable and filterable by strangeness, section, source and month, with the back issues alongside (filtered views are `noindex`) |
+| `/about` | How the paper is made, its editorial standards and its correspondents |
 | `/sitemap.xml`, `/news-sitemap.xml`, `/feed.xml`, `/robots.txt` | For search engines and feed readers |
 
 Every page has its own title, description, canonical URL, Open Graph and Twitter tags, and schema.org data: `NewsArticle` (with `isBasedOn` pointing at the original post), `BreadcrumbList`, `CollectionPage`, and `NewsMediaOrganization`. Old addresses (`/?date=…`, `/index.html`, `www.`) redirect permanently. Unknown pages return a real 404. `/admin` and `/api` carry `noindex`. Set `SITE_URL` so canonical URLs and sitemaps always use the right address.
@@ -121,7 +122,7 @@ The two methods can run side by side. A lock file stops them from printing at th
 | `MAX_ARTICLES` / `MAX_BRIEFS` | `18` / `12` | Paper size |
 | `LOOKBACK_HOURS` | `36` | How fresh a post must be |
 | `SITE_URL` | from the request | Public address for canonical URLs, sitemaps and feeds, e.g. `https://paranormaldaily.com` |
-| `PAPER_NAME` | `The Para News` | Masthead |
+| `PAPER_NAME` | `Paranormal Daily` | Masthead |
 | `AI_MODE` | `on` | `off` forces raw wire copy |
 
 **Cost:** an edition with Sonnet 5.5 makes about 20 calls, takes about a minute and costs roughly $0.25 (about $8 a month). The page footer and `/admin` show the estimated cost of each edition.
@@ -172,6 +173,7 @@ src/web.js            public pages, redirects, sitemaps and feeds
 src/render.js         server-side HTML templates and structured data
 src/feeds.js          robots.txt, sitemaps and the RSS feed
 src/site.js           URL scheme, section slugs and descriptions
+src/archive.js        in-memory index of every article (archive search, section pages, sitemaps, feed)
 src/admin.js          /admin sign-in, sessions and admin API
 src/settings.js       auto-print settings (data/settings.json)
 public/               stylesheet, small browser script, icons and social image

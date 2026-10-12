@@ -2,12 +2,14 @@
 import express from 'express';
 import { listEditions, loadEdition } from './store.js';
 import { SECTIONS, prepareEdition, editionPath, sectionBySlug, sectionPath, siteOrigin } from './site.js';
-import { frontPage, editionPage, articlePage, sectionPage, archivePage, aboutPage, notFoundPage, emptyPage } from './render.js';
+import { frontPage, editionPage, articlePage, sectionPage, archivePage, archiveUrl, aboutPage, notFoundPage, emptyPage } from './render.js';
 import { robotsTxt, sitemapXml, newsSitemapXml, rssXml } from './feeds.js';
+import { articleIndex, filterArticles, facets, SORTS } from './archive.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const HTML_CACHE = 'public, max-age=300, stale-while-revalidate=600';
 const FEED_CACHE = 'public, max-age=900';
+const ARCHIVE_PAGE_SIZE = 25;
 
 // The store caches raw editions, so memoizing on the object keeps slugs computed once per load.
 const prepared = new WeakMap();
@@ -16,15 +18,6 @@ async function getEdition(date) {
   if (!raw) return null;
   if (!prepared.has(raw)) prepared.set(raw, prepareEdition(raw));
   return prepared.get(raw);
-}
-
-async function getEditions(dates) {
-  const out = [];
-  for (const d of dates) {
-    const e = await getEdition(d);
-    if (e) out.push(e);
-  }
-  return out;
 }
 
 async function context(req) {
@@ -38,6 +31,24 @@ function sendHtml(res, page, status = 200) {
 
 function sendXml(res, body, type = 'application/xml') {
   res.set('Cache-Control', FEED_CACHE).type(type).send(body);
+}
+
+/** Validate archive query parameters; anything unrecognized is simply ignored. */
+function parseArchiveQuery(query) {
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const strangeness = Number(str(query.strangeness));
+  const page = Number(str(query.page));
+  const sort = str(query.sort);
+  const month = str(query.month);
+  return {
+    q: str(query.q).slice(0, 100),
+    section: sectionBySlug(str(query.section)),
+    strangeness: Number.isInteger(strangeness) && strangeness >= 1 && strangeness <= 5 ? strangeness : null,
+    source: str(query.source).slice(0, 200) || null,
+    month: /^\d{4}-\d{2}$/.test(month) ? month : null,
+    sort: SORTS[sort] ? sort : 'newest',
+    page: Number.isInteger(page) && page >= 1 ? page : 1,
+  };
 }
 
 export function createSiteRouter() {
@@ -73,34 +84,35 @@ export function createSiteRouter() {
     const id = sectionBySlug(req.params.slug);
     if (!id) return next();
     const ctx = await context(req);
-    const recent = await getEditions(ctx.editions.slice(0, 30).map((e) => e.date));
-    const entries = recent
-      .flatMap((e) => e.articles.filter((a) => a.section === id).map((article) => ({ article, date: e.date })))
-      .slice(0, 60);
-    sendHtml(res, sectionPage(ctx, id, entries));
+    const articles = (await articleIndex()).filter((a) => a.section === id).slice(0, 60);
+    sendHtml(res, sectionPage(ctx, id, articles));
   });
   // Section ids from older links (e.g. /section/skies) -> keyword slug
   router.get('/section/:id', (req, res, next) => (SECTIONS[req.params.id] ? res.redirect(301, sectionPath(req.params.id)) : next()));
 
-  router.get('/archive', async (req, res) => sendHtml(res, archivePage(await context(req))));
+  router.get('/archive', async (req, res) => {
+    const filters = parseArchiveQuery(req.query);
+    const [ctx, all] = await Promise.all([context(req), articleIndex()]);
+    const matches = filterArticles(all, filters);
+    const pages = Math.max(1, Math.ceil(matches.length / ARCHIVE_PAGE_SIZE));
+    if (filters.page > pages) return res.redirect(302, archiveUrl({ ...filters, page: pages }));
+    const results = matches.slice((filters.page - 1) * ARCHIVE_PAGE_SIZE, filters.page * ARCHIVE_PAGE_SIZE);
+    sendHtml(
+      res,
+      archivePage(ctx, { results, total: matches.length, totalAll: all.length, filters, page: filters.page, pages, facets: facets(all), sorts: SORTS }),
+    );
+  });
   router.get('/about', async (req, res) => sendHtml(res, aboutPage(await context(req))));
 
   router.get('/robots.txt', (req, res) => res.set('Cache-Control', FEED_CACHE).type('text/plain').send(robotsTxt(siteOrigin(req))));
 
   router.get('/sitemap.xml', async (req, res) => {
-    const editions = await getEditions((await listEditions()).map((e) => e.date));
-    sendXml(res, sitemapXml(siteOrigin(req), editions));
+    sendXml(res, sitemapXml(siteOrigin(req), await listEditions(), await articleIndex()));
   });
 
-  router.get('/news-sitemap.xml', async (req, res) => {
-    const editions = await getEditions((await listEditions()).slice(0, 3).map((e) => e.date));
-    sendXml(res, newsSitemapXml(siteOrigin(req), editions));
-  });
+  router.get('/news-sitemap.xml', async (req, res) => sendXml(res, newsSitemapXml(siteOrigin(req), await articleIndex())));
 
-  router.get('/feed.xml', async (req, res) => {
-    const editions = await getEditions((await listEditions()).slice(0, 4).map((e) => e.date));
-    sendXml(res, rssXml(siteOrigin(req), editions), 'application/rss+xml');
-  });
+  router.get('/feed.xml', async (req, res) => sendXml(res, rssXml(siteOrigin(req), await articleIndex()), 'application/rss+xml'));
 
   return router;
 }

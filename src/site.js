@@ -4,7 +4,7 @@ import { config } from './config.js';
 export const SITE = {
   name: config.paperName,
   tagline: 'All the News That’s Unfit to Believe',
-  homeTitle: `${config.paperName} — Daily Paranormal, UFO & High Strangeness News`,
+  homeTitle: `${config.paperName} — UFO, Ghost, Cryptid & High Strangeness News`,
   description:
     'A daily newspaper of the internet’s strangest corners: UFO and UAP sightings, ghosts, cryptids, channeled messages, ancient mysteries and the paranormal boards, reported with a straight face every morning.',
   language: 'en',

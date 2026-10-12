@@ -1,6 +1,9 @@
 // Server-side HTML for the public site. Every interpolated value is HTML-escaped unless wrapped in raw(),
 // because most of what we print (headlines, source titles, image URLs) comes from scraped pages.
-import { config, loadSources } from './config.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { config, loadSources, ROOT } from './config.js';
 import { SITE, SECTIONS, sectionPath, editionPath } from './site.js';
 
 // ---------------------------------------------------------------- Templating
@@ -67,6 +70,18 @@ const outRel = (url) => (isForum(url) ? 'nofollow ugc noopener' : 'nofollow noop
 
 // ---------------------------------------------------------------- Page shell
 
+// Hostinger's CDN caches static files, so stylesheet and script URLs carry a content hash:
+// a deploy that changes them changes the URL, and nobody gets a stale copy.
+function asset(name) {
+  try {
+    const hash = createHash('md5').update(fs.readFileSync(path.join(ROOT, 'public', name))).digest('hex').slice(0, 10);
+    return `/${name}?v=${hash}`;
+  } catch {
+    return `/${name}`;
+  }
+}
+const ASSETS = { css: asset('style.css'), js: asset('app.js') };
+
 const GA_TAG = raw(`<!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y2X25QZMV0"></script>
   <script>
@@ -118,12 +133,11 @@ function layout({ ctx, path, title, description, image, type = 'website', noinde
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Playfair+Display:ital,wght@0,600;0,800;0,900;1,500&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="${ASSETS.css}">
   <script>try{var t=localStorage.getItem('paranews-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
   ${jsonld ? jsonLd(jsonld) : ''}
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to the news</a>
   <div class="paper">
     ${header}
     <main id="main">
@@ -131,13 +145,13 @@ ${main}
     </main>
     ${footer(ctx)}
   </div>
-  <script src="/app.js" defer></script>
+  <script src="${ASSETS.js}" defer></script>
 </body>
 </html>
 `;
 }
 
-function masthead(ctx, { edition = ctx.latest, h1 = null, activeSection = null, isFront = false } = {}) {
+function masthead(ctx, { edition = ctx.latest, h1 = null, activeSection = null, isFront = false, isArchive = false } = {}) {
   const shown = edition || ctx.latest;
   const title = h1 ? html`<h1 class="title">${SITE.name}${h1 === true ? '' : html`<span class="visually-hidden">${h1}</span>`}</h1>` : html`<a class="title" href="/">${SITE.name}</a>`;
   return html`<header class="masthead">
@@ -162,7 +176,6 @@ function masthead(ctx, { edition = ctx.latest, h1 = null, activeSection = null, 
         <div class="sections">
           <a href="/"${isFront ? raw(' aria-current="page"') : ''}>Front Page</a>
           ${Object.keys(SECTIONS).map((id) => html`<a href="${sectionPath(id)}"${activeSection === id ? raw(' aria-current="page"') : ''}>${SECTIONS[id].name}</a>`)}
-          <a href="/archive">Archive</a>
         </div>
         <div class="tools">
           <label class="archive">
@@ -171,6 +184,7 @@ function masthead(ctx, { edition = ctx.latest, h1 = null, activeSection = null, 
               ${ctx.editions.map((e) => html`<option value="${editionPath(e.date)}"${shown && e.date === shown.date ? raw(' selected') : ''}>${shortDate(e.date)} · No. ${e.issue}</option>`)}
             </select>
           </label>
+          <a class="archive-btn" href="/archive"${isArchive ? raw(' aria-current="page"') : ''}>Archive</a>
           <button type="button" id="theme-toggle" title="Toggle night edition" aria-label="Toggle night edition">☾</button>
         </div>
       </nav>
@@ -181,7 +195,7 @@ function footer(ctx) {
   return html`<footer class="colophon">
       <nav class="footer-nav" aria-label="Site">
         <a href="/">Front Page</a>
-        <a href="/archive">Archive of Back Issues</a>
+        <a href="/archive">Archive</a>
         <a href="/about">About &amp; Editorial Standards</a>
         <a href="/feed.xml">RSS Feed</a>
       </nav>
@@ -357,10 +371,18 @@ function editionMain(edition) {
         ${edition.sourceReport?.length
           ? html`<details>
           <summary>Correspondents consulted for this edition</summary>
-          <ul class="source-list">${edition.sourceReport.map((s) => html`<li class="${s.ok ? '' : 'bad'}">${s.ok ? '✓' : '✗'} ${s.name}</li>`)}</ul>
+          <ul class="source-list">${edition.sourceReport.map((s) => html`<li class="${s.ok ? '' : 'bad'}">${s.ok ? '✓' : '✗'} ${correspondentLink(s)}</li>`)}</ul>
         </details>`
           : ''}
       </div>`;
+}
+
+/** A correspondent from an edition's source report, linked to its homepage when we know it. */
+let homepages;
+function correspondentLink(report) {
+  homepages ||= new Map(loadSources({ includeDisabled: true }).sources.map((s) => [s.id, s.homepage]));
+  const homepage = homepages.get(report.id);
+  return safeUrl(homepage) ? html`<a href="${homepage}" rel="nofollow noopener" target="_blank">${report.name}</a>` : report.name;
 }
 
 function editionPager(ctx, date) {
@@ -438,7 +460,7 @@ export function articlePage(ctx, edition, a) {
           ${a.kicker ? html`<p class="kicker">${a.kicker}</p>` : ''}
           <h1 class="headline">${a.headline}</h1>
           ${a.deck ? html`<p class="deck">${a.deck}</p>` : ''}
-          <p class="byline">By ${SITE.name} Desk ·<time datetime="${edition.generatedAt}">${longDate(edition.date)}</time> · <a href="${sectionPath(a.section)}">${section}</a></p>
+          <p class="byline">By the ${SITE.name} Desk · <time datetime="${edition.generatedAt}">${longDate(edition.date)}</time> · <a href="${sectionPath(a.section)}">${section}</a></p>
           ${meter(a.weirdness)}
         </header>
         ${figure(a, { priority: true })}
@@ -464,22 +486,22 @@ export function articlePage(ctx, edition, a) {
   });
 }
 
-function listingCard(a, date) {
+/** One story in a listing (section pages): takes an entry from the article index. */
+function listingCard(a) {
   return html`<article class="article listing-card">
-          <p class="kicker"><time datetime="${date}">${shortDate(date)}</time>${a.kicker ? ` · ${a.kicker}` : ''}</p>
+          <p class="kicker"><time datetime="${a.date}">${shortDate(a.date)}</time>${a.kicker ? ` · ${a.kicker}` : ''}</p>
           <h2 class="headline"><a class="headline-link" href="${a.path}">${a.headline}</a></h2>
           ${a.deck ? html`<p class="deck">${a.deck}</p>` : ''}
           ${figure(a, { link: a.path })}
-          <div class="body">${paragraphs(a, 1)}</div>
+          <div class="body"><p>${a.dateline ? html`<span class="dateline">${a.dateline.toUpperCase()} — </span>` : ''}${a.excerpt}</p></div>
           <p class="continue-row"><a class="continue" href="${a.path}">Read the story<span class="visually-hidden">: ${a.headline}</span> ›</a></p>
         </article>`;
 }
 
-export function sectionPage(ctx, id, entries) {
+export function sectionPage(ctx, id, articles) {
   const s = SECTIONS[id];
   const path = sectionPath(id);
   const title = `${s.topic} — ${s.name} | ${SITE.name}`;
-  const articles = entries.map(({ article }) => article);
   return layout({
     ctx,
     path,
@@ -494,60 +516,188 @@ export function sectionPage(ctx, id, entries) {
         <h1>${s.topic}</h1>
         <p class="deck">${s.description}</p>
       </header>
-      ${entries.length
+      ${articles.length
         ? html`<div class="columns listing">
-        ${entries.map(({ article, date }) => listingCard(article, date))}
-      </div>`
+        ${articles.map(listingCard)}
+      </div>
+      <p class="continue-row centered"><a class="continue" href="${archiveUrl({ section: id })}">Every ${s.name} story in the archive ›</a></p>`
         : html`<p class="empty-note">No reports in this section yet. The presses run every morning.</p>`}`,
   });
 }
 
-export function archivePage(ctx) {
+// ---------------------------------------------------------------- Archive
+
+const STRANGENESS = [
+  [2, '◉◉ and stranger'],
+  [3, '◉◉◉ and stranger'],
+  [4, '◉◉◉◉ and stranger'],
+  [5, '◉◉◉◉◉ only'],
+];
+
+/** /archive URL for a set of filters (section by id, page numbers from 2 up). */
+export function archiveUrl({ q, section, strangeness, source, month, sort, page } = {}) {
+  const p = new URLSearchParams();
+  if (q) p.set('q', q);
+  if (section) p.set('section', SECTIONS[section]?.slug ?? section);
+  if (strangeness) p.set('strangeness', String(strangeness));
+  if (source) p.set('source', source);
+  if (month) p.set('month', month);
+  if (sort && sort !== 'newest') p.set('sort', sort);
+  if (page && page > 1) p.set('page', String(page));
+  const qs = p.toString();
+  return qs ? `/archive?${qs}` : '/archive';
+}
+
+const option = (value, label, current) =>
+  html`<option value="${value}"${String(current ?? '') === String(value) ? raw(' selected') : ''}>${label}</option>`;
+
+function archiveFilters(filters, facetList, sorts) {
+  const sectionSlug = filters.section ? SECTIONS[filters.section].slug : '';
+  const active = archiveUrl({ ...filters, page: 1 }) !== '/archive';
+  return html`<form class="filters" method="get" action="/archive" role="search" aria-label="Filter the archive">
+          <label class="filter filter-search">
+            <span>Search</span>
+            <input type="search" name="q" value="${filters.q || ''}" placeholder="Mothman, orbs, Grusch…" maxlength="100">
+          </label>
+          <label class="filter">
+            <span>Strangeness</span>
+            <select name="strangeness">
+              ${option('', 'Any strangeness', filters.strangeness)}
+              ${STRANGENESS.map(([v, label]) => option(v, `${label} (${facetList.strangeness[v]})`, filters.strangeness))}
+            </select>
+          </label>
+          <label class="filter">
+            <span>Section</span>
+            <select name="section">
+              ${option('', 'All sections', sectionSlug)}
+              ${Object.values(SECTIONS).map((s) => option(s.slug, s.name, sectionSlug))}
+            </select>
+          </label>
+          <label class="filter">
+            <span>Source</span>
+            <select name="source">
+              ${option('', 'All sources', filters.source)}
+              ${facetList.sources.map(([name, count]) => option(name, `${name} (${count})`, filters.source))}
+            </select>
+          </label>
+          <label class="filter">
+            <span>Month</span>
+            <select name="month">
+              ${option('', 'All months', filters.month)}
+              ${facetList.months.map((m) => option(m, monthName(`${m}-01`), filters.month))}
+            </select>
+          </label>
+          <label class="filter">
+            <span>Order</span>
+            <select name="sort">
+              ${Object.entries(sorts).map(([v, label]) => option(v, label, filters.sort || 'newest'))}
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button type="submit" class="btn-primary">Search the Archive</button>
+            ${active ? html`<a class="reset" href="/archive">Clear filters</a>` : ''}
+          </div>
+        </form>`;
+}
+
+function archiveResult(a) {
+  const img = safeUrl(a.image);
+  return html`<li class="result${img ? ' has-thumb' : ''}">
+            ${img
+              ? html`<a class="thumb" href="${a.path}" tabindex="-1" aria-hidden="true"><img src="${img}" alt="" width="160" height="107" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></a>`
+              : ''}
+            <p class="kicker"><time datetime="${a.date}">${shortDate(a.date)}</time> · <a href="${sectionPath(a.section)}">${sectionName(a.section)}</a></p>
+            <h2 class="result-headline"><a href="${a.path}">${a.headline}</a></h2>
+            ${a.deck ? html`<p class="deck">${a.deck}</p>` : ''}
+            <p class="result-meta">${a.weirdness
+              ? html`<span class="eyes" title="Strangeness ${a.weirdness} of 5">${'◉'.repeat(a.weirdness)}${'○'.repeat(5 - a.weirdness)}</span><span class="visually-hidden">Strangeness ${a.weirdness} of 5</span> · `
+              : ''}${a.source}</p>
+          </li>`;
+}
+
+function archivePager(filters, page, pages) {
+  if (pages <= 1) return '';
+  const nums = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const items = [];
+  nums.forEach((n, i) => {
+    if (i && n - nums[i - 1] > 1) items.push(html`<span class="gap">…</span>`);
+    items.push(n === page ? html`<span aria-current="page">${n}</span>` : html`<a href="${archiveUrl({ ...filters, page: n })}">${n}</a>`);
+  });
+  return html`<nav class="archive-pager" aria-label="Archive pages">
+          ${page > 1 ? html`<a rel="prev" href="${archiveUrl({ ...filters, page: page - 1 })}">‹ Previous</a>` : ''}
+          ${items}
+          ${page < pages ? html`<a rel="next" href="${archiveUrl({ ...filters, page: page + 1 })}">Next ›</a>` : ''}
+        </nav>`;
+}
+
+function backIssues(editions) {
   const byMonth = new Map();
-  for (const e of ctx.editions) {
+  for (const e of editions) {
     const key = monthName(e.date);
     if (!byMonth.has(key)) byMonth.set(key, []);
     byMonth.get(key).push(e);
   }
-  const description = `Every back issue of ${SITE.name}, the daily newspaper of paranormal, UFO and high strangeness news: ${ctx.editions.length} editions so far.`;
-  return layout({
-    ctx,
-    path: '/archive',
-    title: `Archive of Back Issues | ${SITE.name}`,
-    description,
-    jsonld: {
-      '@graph': [
-        {
-          ...collectionPage(ctx, '/archive', `Archive of Back Issues — ${SITE.name}`, description),
-          mainEntity: {
-            '@type': 'ItemList',
-            itemListElement: ctx.editions.map((e, i) => ({ '@type': 'ListItem', position: i + 1, url: ctx.origin + editionPath(e.date), name: `${longDate(e.date)} Edition` })),
-          },
-        },
-        breadcrumbs(ctx, [['Front Page', '/'], ['Archive', '/archive']]),
-      ],
-    },
-    header: masthead(ctx),
-    main: html`
-      <header class="page-head">
-        <p class="kicker">The Morgue</p>
-        <h1>Archive of Back Issues</h1>
-        <p class="deck">Every edition since the presses first rolled, newest first.</p>
-      </header>
-      ${[...byMonth].map(
-        ([month, list]) => html`<section class="archive-month" aria-label="${month}">
-        <h2 class="column-title">${month}</h2>
+  return html`<aside class="back-issues" aria-labelledby="back-issues-title">
+        <h2 id="back-issues-title" class="column-title">Back Issues</h2>
+        ${[...byMonth].map(
+          ([month, list]) => html`<h3 class="back-month">${month}</h3>
         <ol class="archive-list">
           ${list.map(
             (e) => html`<li>
-            <a href="${editionPath(e.date)}"><time datetime="${e.date}">${longDate(e.date)}</time> · No. ${e.issue}</a>
+            <a href="${editionPath(e.date)}"><time datetime="${e.date}">${shortDate(e.date)}</time> · No. ${e.issue}</a>
             ${e.lead ? html`<span class="archive-lead">${e.lead}</span>` : ''}
-            <span class="archive-count">${e.articles} stories</span>
           </li>`,
           )}
-        </ol>
-      </section>`,
-      )}`,
+        </ol>`,
+        )}
+      </aside>`;
+}
+
+/**
+ * view: { results (this page), total (matches), totalAll (whole archive), filters, page, pages, facets, sorts }
+ * Filtered or paged views are noindex: the plain /archive page is the one we want in search results.
+ */
+export function archivePage(ctx, view) {
+  const { results, total, totalAll, filters, page, pages } = view;
+  const filtered = archiveUrl(filters) !== '/archive';
+  const description = `Search every story ${SITE.name} has printed (${totalAll} so far) by strangeness, section, source or month: UFOs, ghosts, cryptids and high strangeness.`;
+  const countLine = archiveUrl({ ...filters, page: 1 }) !== '/archive'
+    ? `${total} ${total === 1 ? 'story matches' : 'stories match'}${pages > 1 ? ` · page ${page} of ${pages}` : ''}`
+    : `${totalAll} stories in ${ctx.editions.length} editions${pages > 1 ? ` · page ${page} of ${pages}` : ''}`;
+  return layout({
+    ctx,
+    path: archiveUrl(filters),
+    title: filtered ? `Archive search${filters.q ? `: ${filters.q}` : ''} | ${SITE.name}` : `The Archive: Every Story | ${SITE.name}`,
+    description,
+    noindex: filtered,
+    jsonld: filtered
+      ? null
+      : {
+          '@graph': [
+            collectionPage(ctx, '/archive', `The Archive — ${SITE.name}`, description, results),
+            breadcrumbs(ctx, [['Front Page', '/'], ['Archive', '/archive']]),
+          ],
+        },
+    header: masthead(ctx, { isArchive: true }),
+    main: html`
+      <header class="page-head">
+        <p class="kicker">The Morgue</p>
+        <h1>The Archive</h1>
+        <p class="deck">Every story we have printed, from the merely odd to the frankly impossible. Filter by strangeness, section, source or month.</p>
+      </header>
+      <div class="archive-layout">
+        <div class="archive-main">
+        ${archiveFilters(filters, view.facets, view.sorts)}
+        <p class="result-count" role="status">${countLine}</p>
+        ${results.length
+          ? html`<ol class="results">
+          ${results.map(archiveResult)}
+        </ol>`
+          : html`<p class="empty-note">Nothing in the archive matches that. The truth may be out there, but not here.</p>`}
+        ${archivePager(filters, page, pages)}
+        </div>
+        ${backIssues(ctx.editions)}
+      </div>`,
   });
 }
 

@@ -10,7 +10,7 @@ dotenv.config({ path: path.join(ROOT, '.env'), quiet: true });
 const int = (v, d) => (v === undefined || v === '' || isNaN(Number(v)) ? d : Number(v));
 
 export const config = {
-  paperName: process.env.PAPER_NAME || 'The Para News',
+  paperName: process.env.PAPER_NAME || 'Paranormal Daily',
   port: int(process.env.PORT, 3000),
   // Public origin for canonical URLs, sitemaps and feeds, e.g. https://paranormaldaily.com
   siteUrl: (process.env.SITE_URL || '').replace(/\/+$/, ''),
@@ -46,7 +46,7 @@ export const config = {
   editionsDir: path.join(ROOT, 'data', 'editions'),
 };
 
-export function loadSources() {
+export function loadSources({ includeDisabled = false } = {}) {
   const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'sources.json'), 'utf8'));
-  return { sections: raw.sections, sources: raw.sources.filter((s) => s.enabled !== false) };
+  return { sections: raw.sections, sources: includeDisabled ? raw.sources : raw.sources.filter((s) => s.enabled !== false) };
 }

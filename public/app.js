@@ -15,3 +15,14 @@ document.getElementById('theme-toggle')?.addEventListener('click', () => {
 document.getElementById('edition-select')?.addEventListener('change', (e) => {
   location.href = e.target.value;
 });
+
+// Archive filters: dropdowns apply at once, and empty fields stay out of the URL.
+const filters = document.querySelector('form.filters');
+if (filters) {
+  filters.querySelectorAll('select').forEach((select) => select.addEventListener('change', () => filters.requestSubmit()));
+  filters.addEventListener('submit', () => {
+    for (const field of filters.elements) {
+      if (field.name && (!field.value || (field.name === 'sort' && field.value === 'newest'))) field.disabled = true;
+    }
+  });
+}

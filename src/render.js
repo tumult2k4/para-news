@@ -80,7 +80,15 @@ function asset(name) {
     return `/${name}`;
   }
 }
-const ASSETS = { css: asset('style.css'), js: asset('app.js') };
+export const ASSETS = {
+  css: asset('style.css'),
+  js: asset('app.js'),
+  ogImage: asset('og-default.png'),
+  logo: asset('logo.png'),
+  favicon: asset('favicon.svg'),
+  favicon32: asset('favicon-32.png'),
+  touchIcon: asset('apple-touch-icon.png'),
+};
 
 const GA_TAG = raw(`<!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y2X25QZMV0"></script>
@@ -97,7 +105,7 @@ const ROBOTS_NOINDEX = 'noindex, follow';
 
 function layout({ ctx, path, title, description, image, type = 'website', noindex = false, article, jsonld, header, main }) {
   const url = ctx.origin + path;
-  const img = safeUrl(image) || `${ctx.origin}/og-default.png`;
+  const img = safeUrl(image) || `${ctx.origin}${ASSETS.ogImage}`;
   return html`<!doctype html>
 <html lang="${SITE.language}">
 <head>
@@ -126,9 +134,9 @@ function layout({ ctx, path, title, description, image, type = 'website', noinde
   <meta name="twitter:image" content="${img}">
   <meta name="theme-color" content="#f3ecdc" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#17150f" media="(prefers-color-scheme: dark)">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="${ASSETS.favicon}" type="image/svg+xml">
+  <link rel="icon" href="${ASSETS.favicon32}" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="${ASSETS.touchIcon}">
   <link rel="alternate" type="application/rss+xml" title="${SITE.name}" href="${ctx.origin}/feed.xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -273,7 +281,7 @@ function organization(ctx) {
     '@id': orgId(ctx),
     name: SITE.name,
     url: `${ctx.origin}/`,
-    logo: { '@type': 'ImageObject', url: `${ctx.origin}/logo.png`, width: 512, height: 512 },
+    logo: { '@type': 'ImageObject', url: `${ctx.origin}${ASSETS.logo}`, width: 512, height: 512 },
     description: SITE.description,
     publishingPrinciples: `${ctx.origin}/about`,
     ethicsPolicy: `${ctx.origin}/about#standards`,
@@ -322,7 +330,7 @@ function newsArticle(ctx, edition, a) {
     url,
     headline: clip(a.headline, 110),
     description: clip(a.deck || a.paragraphs[0] || a.headline, 300),
-    ...(safeUrl(a.image) ? { image: [a.image] } : { image: [`${ctx.origin}/og-default.png`] }),
+    ...(safeUrl(a.image) ? { image: [a.image] } : { image: [`${ctx.origin}${ASSETS.ogImage}`] }),
     datePublished: edition.generatedAt,
     dateModified: edition.generatedAt,
     articleSection: sectionName(a.section),

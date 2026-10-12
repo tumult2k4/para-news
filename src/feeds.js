@@ -1,6 +1,6 @@
 // robots.txt, XML sitemaps (regular + Google News) and the RSS feed.
 import { SITE, SECTIONS, sectionPath, editionPath } from './site.js';
-import { clip } from './render.js';
+import { clip, ASSETS } from './render.js';
 
 const XML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' };
 const x = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => XML_ESC[c]);
@@ -85,7 +85,7 @@ export function rssXml(origin, articles, limit = 50) {
     <language>${SITE.language}</language>
     <atom:link href="${x(origin)}/feed.xml" rel="self" type="application/rss+xml"/>
     ${articles[0] ? `<lastBuildDate>${new Date(articles[0].generatedAt).toUTCString()}</lastBuildDate>` : ''}
-    <image><url>${x(origin)}/logo.png</url><title>${x(SITE.name)}</title><link>${x(origin)}/</link></image>
+    <image><url>${x(origin + ASSETS.logo)}</url><title>${x(SITE.name)}</title><link>${x(origin)}/</link></image>
 ${items.join('\n')}
   </channel>
 </rss>
